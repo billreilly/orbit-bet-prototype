@@ -49,6 +49,9 @@ input[type="number"], input[type="range"], input[type="email"] { width: 100%; ma
 .action-big { min-width: 160px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: linear-gradient(180deg, rgba(28, 35, 44, 0.9), rgba(22, 28, 35, 0.92)); }
 .topbar-title { margin-bottom: 6px; }
+.mobile-balance-strip { display: none; align-items: center; justify-content: space-between; gap: 10px; width: 100%; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,0.03); }
+.mobile-balance-strip span { color: var(--muted); font-size: 0.9rem; }
+.mobile-balance-strip strong { font-size: 1.1rem; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
 .rail { display: flex; flex-direction: column; gap: 18px; }
 .hero { display: flex; justify-content: space-between; gap: 18px; align-items: end; }
@@ -123,7 +126,36 @@ input[type="number"], input[type="range"], input[type="email"] { width: 100%; ma
 }
 @media (max-width: 900px) {
   .casino-shell { grid-template-columns: 1fr; }
-  .shell-sidebar { border-right: 0; border-bottom: 1px solid var(--border); }
+  .shell-sidebar { border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+  .shell-main { padding: 14px; }
   .hero, .topbar { flex-direction: column; align-items: stretch; }
   .hero-stats, .feature-strip { min-width: 0; grid-template-columns: 1fr; }
+  .topbar-actions { flex-direction: column; }
+  .topbar-actions input,
+  .topbar-actions button,
+  .button-row button,
+  .action-big,
+  .primary { width: 100%; }
+  .quick-bets { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .quick-bets button { width: 100%; }
+  .mobile-balance-strip { display: flex; }
+  .wallet-card { display: none; }
+  .content-grid { gap: 14px; }
+  .page-card { min-height: auto; }
+  .mines-grid { gap: 8px; }
+  .tile { font-size: 1.1rem; border-radius: 12px; }
+}
+
+@media (max-width: 560px) {
+  .shell-sidebar { gap: 14px; }
+  .brand-block { align-items: center; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.5rem; }
+  .card, .compact-card { padding: 14px; border-radius: 16px; }
+  .nav-list { display: grid; grid-template-columns: repeat(2, 1fr); }
+  .nav-link { min-height: 72px; flex-direction: column; align-items: flex-start; justify-content: center; }
+  .nav-link small { font-size: 0.75rem; }
+  .promo-card, .lobby-card { min-height: 0; }
+  .result-box, .crash-display { font-size: 1.5rem; padding: 18px; }
 }

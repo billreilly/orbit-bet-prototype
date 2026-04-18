@@ -434,6 +434,10 @@ export function CasinoApp({ game }: { game: GameKey }) {
             <h3 className="topbar-title">{activeNav.label}</h3>
             {sessionReady ? <p className="muted">{profile ? `Signed in as ${profile.username || 'player'}` : 'Guest mode'}</p> : <p className="muted">Loading...</p>}
           </div>
+          <div className="mobile-balance-strip">
+            <span>Balance</span>
+            <strong>{formatCoin(balance)}</strong>
+          </div>
           <div className="topbar-actions">
             {profile ? (
               <button onClick={signOut}>Sign out</button>
@@ -469,6 +473,7 @@ export function CasinoApp({ game }: { game: GameKey }) {
             <div className="card compact-card">
               <p className="eyebrow">Leaderboard</p>
               <div className="leaderboard">
+                {leaderboard.length === 0 ? <p className="muted">No players yet.</p> : null}
                 {leaderboard.map((entry, index) => (
                   <div key={entry.id} className="leader-row">
                     <span>#{index + 1}</span>
