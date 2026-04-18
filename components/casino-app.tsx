@@ -31,10 +31,10 @@ type MinesState = {
 const GRID_SIZE = 16;
 const START_BALANCE = 1000;
 const NAV_ITEMS = [
-  { href: '/casino', label: 'Lobby', key: 'lobby' },
-  { href: '/casino/dice', label: 'Dice', key: 'dice' },
-  { href: '/casino/crash', label: 'Crash', key: 'crash' },
-  { href: '/casino/mines', label: 'Mines', key: 'mines' },
+  { href: '/casino', label: 'Lobby', key: 'lobby', meta: 'Overview' },
+  { href: '/casino/dice', label: 'Dice', key: 'dice', meta: 'Under / Over' },
+  { href: '/casino/crash', label: 'Crash', key: 'crash', meta: 'Timing' },
+  { href: '/casino/mines', label: 'Mines', key: 'mines', meta: 'Grid risk' },
 ] as const;
 
 function randomBetween(min: number, max: number) {
@@ -81,6 +81,7 @@ export function CasinoApp({ game }: { game: GameKey }) {
 
   const safeReveals = mines.revealed.length;
   const minesCashoutMultiplier = useMemo(() => 1 + safeReveals * 0.28, [safeReveals]);
+  const activeNav = NAV_ITEMS.find((item) => item.key === game) || NAV_ITEMS[0];
 
   async function loadLeaderboard() {
     const { data } = await supabase
@@ -127,7 +128,9 @@ export function CasinoApp({ game }: { game: GameKey }) {
 
   useEffect(() => {
     loadProfile();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
       loadProfile();
     });
     return () => subscription.unsubscribe();
@@ -177,7 +180,11 @@ export function CasinoApp({ game }: { game: GameKey }) {
     setDiceLast(roll);
     const won = roll < diceTarget;
     const payout = Number((bet * (99 / diceTarget)).toFixed(2));
-    updateBalance(won ? payout - bet : -bet, 'Dice', won ? `Rolled ${roll}, under ${diceTarget}` : `Rolled ${roll}, missed under ${diceTarget}`);
+    updateBalance(
+      won ? payout - bet : -bet,
+      'Dice',
+      won ? `Rolled ${roll}, under ${diceTarget}` : `Rolled ${roll}, missed under ${diceTarget}`
+    );
   }
 
   useEffect(() => {
@@ -248,18 +255,89 @@ export function CasinoApp({ game }: { game: GameKey }) {
 
   function renderMain() {
     if (game === 'dice') {
-      return <article className="card page-card"><div className="card-top"><div><p className="eyebrow">Dice</p><h2>Roll under</h2></div><span className="pill">Fast</span></div><label>Win if roll is under<input type="range" min="5" max="95" value={diceTarget} onChange={(e) => setDiceTarget(Number(e.target.value))} /><strong>{diceTarget}</strong></label><p className="muted">Classic fast dice loop. Tune probability, roll, and learn the payout curve.</p><div className="result-box">{diceLast === null ? 'No roll yet' : `Last roll: ${diceLast}`}</div><button className="primary action-big" onClick={rollDice}>Roll Dice</button></article>;
+      return (
+        <article className="card page-card game-panel dice-theme">
+          <div className="panel-banner">
+            <div>
+              <p className="eyebrow">Dice</p>
+              <h2>Roll under</h2>
+            </div>
+            <span className="pill pill-bright">Fast</span>
+          </div>
+          <div className="feature-strip">
+            <div><span>Chance</span><strong>{diceTarget}%</strong></div>
+            <div><span>Potential feel</span><strong>Steady</strong></div>
+            <div><span>Bet</span><strong>{formatCoin(bet)}</strong></div>
+          </div>
+          <label>
+            Win if roll is under
+            <input type="range" min="5" max="95" value={diceTarget} onChange={(e) => setDiceTarget(Number(e.target.value))} />
+            <strong>{diceTarget}</strong>
+          </label>
+          <p className="muted">Classic fast dice loop. Tune probability, roll, and learn the payout curve.</p>
+          <div className="result-box">{diceLast === null ? 'No roll yet' : `Last roll: ${diceLast}`}</div>
+          <button className="primary action-big" onClick={rollDice}>Roll Dice</button>
+        </article>
+      );
     }
+
     if (game === 'crash') {
-      return <article className="card page-card"><div className="card-top"><div><p className="eyebrow">Crash</p><h2>Ride the multiplier</h2></div><span className="pill">Timing</span></div><label>Auto cashout<input type="number" step="0.1" min="1.1" value={crashAutoCashout} onChange={(e) => setCrashAutoCashout(Number(e.target.value) || 1.1)} /></label><div className="crash-display">{crashMultiplier.toFixed(2)}x</div><p className="muted">The multiplier climbs until it suddenly crashes. Cash out in time.</p><div className="button-row"><button className="primary action-big" onClick={startCrash} disabled={crashRunning}>Start Round</button><button className="action-big" onClick={cashOutCrash} disabled={!crashRunning || !crashBetPlaced}>Cash Out</button></div></article>;
+      return (
+        <article className="card page-card game-panel crash-theme">
+          <div className="panel-banner">
+            <div>
+              <p className="eyebrow">Crash</p>
+              <h2>Ride the multiplier</h2>
+            </div>
+            <span className="pill pill-bright">Timing</span>
+          </div>
+          <div className="feature-strip">
+            <div><span>Auto</span><strong>{crashAutoCashout.toFixed(2)}x</strong></div>
+            <div><span>Status</span><strong>{crashRunning ? 'Live' : 'Idle'}</strong></div>
+            <div><span>Bet</span><strong>{formatCoin(bet)}</strong></div>
+          </div>
+          <label>
+            Auto cashout
+            <input type="number" step="0.1" min="1.1" value={crashAutoCashout} onChange={(e) => setCrashAutoCashout(Number(e.target.value) || 1.1)} />
+          </label>
+          <div className="crash-display">{crashMultiplier.toFixed(2)}x</div>
+          <p className="muted">The multiplier climbs until it suddenly crashes. Cash out in time.</p>
+          <div className="button-row">
+            <button className="primary action-big" onClick={startCrash} disabled={crashRunning}>Start Round</button>
+            <button className="action-big" onClick={cashOutCrash} disabled={!crashRunning || !crashBetPlaced}>Cash Out</button>
+          </div>
+        </article>
+      );
     }
+
     if (game === 'mines') {
-      return <article className="card page-card"><div className="card-top"><div><p className="eyebrow">Mines</p><h2>Pick safe tiles</h2></div><span className="pill">Risk</span></div><div className="mines-meta"><span>Safe picks: {mines.revealed.length}</span><strong>{minesCashoutMultiplier.toFixed(2)}x</strong></div><p className="muted">Three hidden mines on a 4x4 grid. Every safe click boosts your multiplier.</p><div className="mines-grid">{Array.from({ length: GRID_SIZE }).map((_, index) => { const revealed = mines.revealed.includes(index); const isMine = mines.mines.includes(index); return <button key={index} className={`tile ${revealed ? (isMine ? 'mine' : 'safe') : ''}`} onClick={() => revealTile(index)} disabled={!mines.active || revealed || (!mines.active && !mines.lost)}>{revealed ? (isMine ? '✕' : '◆') : '?'}</button>; })}</div><div className="button-row"><button className="primary action-big" onClick={startMines}>New Round</button><button className="action-big" onClick={cashOutMines} disabled={!mines.active || mines.revealed.length === 0}>Cash Out</button></div></article>;
+      return (
+        <article className="card page-card game-panel mines-theme">
+          <div className="panel-banner">
+            <div>
+              <p className="eyebrow">Mines</p>
+              <h2>Pick safe tiles</h2>
+            </div>
+            <span className="pill pill-bright">Risk</span>
+          </div>
+          <div className="feature-strip">
+            <div><span>Safe picks</span><strong>{mines.revealed.length}</strong></div>
+            <div><span>Multiplier</span><strong>{minesCashoutMultiplier.toFixed(2)}x</strong></div>
+            <div><span>Bet</span><strong>{formatCoin(bet)}</strong></div>
+          </div>
+          <p className="muted">Three hidden mines on a 4x4 grid. Every safe click boosts your multiplier.</p>
+          <div className="mines-grid">{Array.from({ length: GRID_SIZE }).map((_, index) => { const revealed = mines.revealed.includes(index); const isMine = mines.mines.includes(index); return <button key={index} className={`tile ${revealed ? (isMine ? 'mine' : 'safe') : ''}`} onClick={() => revealTile(index)} disabled={!mines.active || revealed || (!mines.active && !mines.lost)}>{revealed ? (isMine ? '✕' : '◆') : '?'}</button>; })}</div>
+          <div className="button-row">
+            <button className="primary action-big" onClick={startMines}>New Round</button>
+            <button className="action-big" onClick={cashOutMines} disabled={!mines.active || mines.revealed.length === 0}>Cash Out</button>
+          </div>
+        </article>
+      );
     }
 
     return (
       <>
-        <section className="hero card">
+        <section className="hero hero-lobby card">
           <div>
             <p className="eyebrow">Casino Lobby</p>
             <h2>Fake-money game floor</h2>
@@ -271,13 +349,30 @@ export function CasinoApp({ game }: { game: GameKey }) {
             <div><span>Stack</span><strong>Next + Supabase</strong></div>
           </div>
         </section>
+        <section className="promo-grid">
+          <div className="card promo-card green-glow">
+            <p className="eyebrow">Balance</p>
+            <h3>{formatCoin(balance)} coins</h3>
+            <p className="muted">Your fake wallet updates live and persists when signed in.</p>
+          </div>
+          <div className="card promo-card blue-glow">
+            <p className="eyebrow">Accounts</p>
+            <h3>{profile ? 'Magic link active' : 'Guest mode'}</h3>
+            <p className="muted">Use email sign-in to save history and keep your balance across devices.</p>
+          </div>
+        </section>
         <section className="lobby-grid">
           {NAV_ITEMS.filter((item) => item.key !== 'lobby').map((item) => (
-            <Link key={item.href} href={item.href} className="card lobby-card">
-              <p className="eyebrow">Game</p>
-              <h3>{item.label}</h3>
-              <p className="muted">Open the dedicated {item.label.toLowerCase()} page and play with your fake balance.</p>
-              <span className="pill">Open</span>
+            <Link key={item.href} href={item.href} className="card lobby-card game-preview">
+              <div>
+                <p className="eyebrow">Game</p>
+                <h3>{item.label}</h3>
+                <p className="muted">Open the dedicated {item.label.toLowerCase()} page and play with your fake balance.</p>
+              </div>
+              <div className="preview-footer">
+                <span className="subtle-tag">{item.meta}</span>
+                <span className="pill pill-bright">Open</span>
+              </div>
             </Link>
           ))}
         </section>
@@ -288,19 +383,30 @@ export function CasinoApp({ game }: { game: GameKey }) {
   return (
     <main className="casino-shell">
       <aside className="shell-sidebar">
-        <div>
-          <p className="eyebrow">Orbit.bet</p>
-          <h1>Casino</h1>
-          <p className="muted">Separate game routes, fake balance, saved progress.</p>
+        <div className="brand-block">
+          <div className="brand-mark">O</div>
+          <div>
+            <p className="eyebrow">Orbit.bet</p>
+            <h1>Casino</h1>
+            <p className="muted">Separate game routes, fake balance, saved progress.</p>
+          </div>
         </div>
         <nav className="nav-list">
           {NAV_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href} className={`nav-link ${pathname === item.href ? 'active' : ''}`}>{item.label}</Link>
+            <Link key={item.href} href={item.href} className={`nav-link ${pathname === item.href ? 'active' : ''}`}>
+              <span>{item.label}</span>
+              <small>{item.meta}</small>
+            </Link>
           ))}
         </nav>
-        <div className="card compact-card">
-          <p className="eyebrow">Wallet</p>
-          <strong className="wallet-amount">{formatCoin(balance)}</strong>
+        <div className="card compact-card wallet-card">
+          <div className="wallet-row">
+            <div>
+              <p className="eyebrow">Wallet</p>
+              <strong className="wallet-amount">{formatCoin(balance)}</strong>
+            </div>
+            <span className="wallet-badge">Fake</span>
+          </div>
           <label>
             Bet size
             <input type="number" min="1" value={bet} onChange={(e) => setBet(Number(e.target.value) || 0)} />
@@ -314,7 +420,8 @@ export function CasinoApp({ game }: { game: GameKey }) {
       <section className="shell-main">
         <header className="topbar card compact-card">
           <div>
-            <p className="eyebrow">Account</p>
+            <p className="eyebrow">Now viewing</p>
+            <h3 className="topbar-title">{activeNav.label}</h3>
             {sessionReady ? <p className="muted">{profile ? `Signed in as ${profile.username || 'player'}` : 'Guest mode'}</p> : <p className="muted">Loading...</p>}
           </div>
           <div className="topbar-actions">
@@ -332,6 +439,17 @@ export function CasinoApp({ game }: { game: GameKey }) {
         <div className="content-grid">
           <section>{renderMain()}</section>
           <aside className="rail">
+            <div className="card compact-card stream-card">
+              <div className="stream-header">
+                <p className="eyebrow">Live feed</p>
+                <span className="live-dot">●</span>
+              </div>
+              <div className="stream-items">
+                <div><strong>Dice</strong><span>Fast rounds are live</span></div>
+                <div><strong>Crash</strong><span>Watch the multiplier curve</span></div>
+                <div><strong>Mines</strong><span>Grid risk, manual cashout</span></div>
+              </div>
+            </div>
             <div className="card compact-card">
               <p className="eyebrow">Recent plays</p>
               <div className="logs">
