@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 type LogEntry = {
   game: string;
   detail: string;
   delta: number;
+  balance_after: number;
+  created_at?: string;
+};
+
+type Profile = {
+  id: string;
+  username: string | null;
   balance: number;
 };
 
@@ -19,6 +27,10 @@ type MinesState = {
 
 const GRID_SIZE = 16;
 const START_BALANCE = 1000;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 function randomBetween(min: number, max: number) {
   return Math.random() * (max - min) + min;
@@ -35,6 +47,10 @@ function makeMines(count: number) {
 }
 
 export default function Home() {
+  const [email, setEmail] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [balance, setBalance] = useState(START_BALANCE);
   const [bet, setBet] = useState(25);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -60,20 +76,84 @@ export default function Home() {
   const safeReveals = mines.revealed.length;
   const minesCashoutMultiplier = useMemo(() => 1 + safeReveals * 0.28, [safeReveals]);
 
-  function pushLog(game: string, detail: string, delta: number, nextBalance: number) {
-    setLogs((prev) => [{ game, detail, delta, balance: nextBalance }, ...prev].slice(0, 8));
+  async function loadProfile() {
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user;
+    if (!user) {
+      setProfile(null);
+      setBalance(START_BALANCE);
+      setLogs([]);
+      setSessionReady(true);
+      return;
+    }
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, username, balance')
+      .eq('id', user.id)
+      .single();
+
+    if (profileData) {
+      setProfile(profileData as Profile);
+      setBalance(Number(profileData.balance));
+    }
+
+    const { data: rounds } = await supabase
+      .from('game_rounds')
+      .select('game, detail, delta, balance_after, created_at')
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    setLogs((rounds as LogEntry[]) || []);
+    setSessionReady(true);
+  }
+
+  useEffect(() => {
+    loadProfile();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadProfile();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function saveRound(game: string, detail: string, delta: number, nextBalance: number) {
+    setLogs((prev) => [{ game, detail, delta, balance_after: nextBalance }, ...prev].slice(0, 8));
+    if (!profile) return;
+
+    await supabase.from('profiles').update({ balance: nextBalance }).eq('id', profile.id);
+    await supabase.from('game_rounds').insert({
+      user_id: profile.id,
+      game,
+      detail,
+      delta,
+      balance_after: nextBalance,
+    });
+    setProfile((prev) => (prev ? { ...prev, balance: nextBalance } : prev));
   }
 
   function updateBalance(delta: number, game: string, detail: string) {
     setBalance((prev) => {
       const next = Math.max(0, prev + delta);
-      pushLog(game, detail, delta, next);
+      void saveRound(game, detail, delta, next);
       return next;
     });
   }
 
   function canBet() {
     return bet > 0 && bet <= balance;
+  }
+
+  async function signIn() {
+    if (!email) return;
+    setAuthLoading(true);
+    await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+    setAuthLoading(false);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
   }
 
   function rollDice() {
@@ -132,13 +212,7 @@ export default function Home() {
   }
 
   function resetMinesGame() {
-    setMines({
-      size: GRID_SIZE,
-      mines: makeMines(3),
-      revealed: [],
-      lost: false,
-      active: false,
-    });
+    setMines({ size: GRID_SIZE, mines: makeMines(3), revealed: [], lost: false, active: false });
   }
 
   function startMines() {
@@ -185,6 +259,23 @@ export default function Home() {
             ))}
           </div>
         </div>
+        <div className="card auth-card">
+          <p className="eyebrow">Account</p>
+          {!sessionReady ? (
+            <p className="muted">Loading session...</p>
+          ) : profile ? (
+            <>
+              <p className="muted">Signed in as <strong>{profile.username || 'player'}</strong></p>
+              <button className="primary" onClick={signOut}>Sign out</button>
+            </>
+          ) : (
+            <>
+              <p className="muted">Use magic link login to save balance and history.</p>
+              <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <button className="primary" onClick={signIn} disabled={authLoading}>{authLoading ? 'Sending...' : 'Send magic link'}</button>
+            </>
+          )}
+        </div>
         <div className="card">
           <p className="eyebrow">Recent plays</p>
           <div className="logs">
@@ -194,7 +285,7 @@ export default function Home() {
                   <strong>{log.game}</strong>
                   <p>{log.detail}</p>
                 </div>
-                <span className={log.delta >= 0 ? 'win' : 'lose'}>{log.delta >= 0 ? '+' : ''}{formatCoin(log.delta)}</span>
+                <span className={log.delta >= 0 ? 'win' : 'lose'}>{log.delta >= 0 ? '+' : ''}{formatCoin(Number(log.delta))}</span>
               </div>
             ))}
           </div>
@@ -206,12 +297,12 @@ export default function Home() {
           <div>
             <p className="eyebrow">Live prototype</p>
             <h2>Simple casino-style training sandbox</h2>
-            <p className="muted">Working fake-money versions of Dice, Crash, and Mines. Polished enough to explore the rules, light enough to ship fast on Vercel.</p>
+            <p className="muted">Working fake-money versions of Dice, Crash, and Mines. Now with Supabase-backed account persistence.</p>
           </div>
           <div className="hero-stats">
             <div><span>Games</span><strong>3</strong></div>
             <div><span>Mode</span><strong>Fake</strong></div>
-            <div><span>Ready</span><strong>Vercel</strong></div>
+            <div><span>Storage</span><strong>Supabase</strong></div>
           </div>
         </div>
 
