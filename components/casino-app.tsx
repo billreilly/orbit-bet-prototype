@@ -71,6 +71,7 @@ export function CasinoApp({ game }: { game: GameKey }) {
   const [crashAutoCashout, setCrashAutoCashout] = useState(1.8);
   const [crashBetPlaced, setCrashBetPlaced] = useState(false);
   const [crashResolved, setCrashResolved] = useState(false);
+  const [diceRolling, setDiceRolling] = useState(false);
 
   const [mines, setMines] = useState<MinesState>({
     mines: makeMines(3),
@@ -175,16 +176,24 @@ export function CasinoApp({ game }: { game: GameKey }) {
   }
 
   function rollDice() {
-    if (!canBet()) return;
+    if (!canBet() || diceRolling) return;
+    setDiceRolling(true);
     const roll = Number(randomBetween(0, 100).toFixed(2));
-    setDiceLast(roll);
-    const won = roll < diceTarget;
-    const payout = Number((bet * (99 / diceTarget)).toFixed(2));
-    updateBalance(
-      won ? payout - bet : -bet,
-      'Dice',
-      won ? `Rolled ${roll}, under ${diceTarget}` : `Rolled ${roll}, missed under ${diceTarget}`
-    );
+    const preview = Array.from({ length: 8 }, () => Number(randomBetween(0, 100).toFixed(2)));
+    preview.forEach((value, index) => {
+      setTimeout(() => setDiceLast(value), index * 90);
+    });
+    setTimeout(() => {
+      setDiceLast(roll);
+      setDiceRolling(false);
+      const won = roll < diceTarget;
+      const payout = Number((bet * (99 / diceTarget)).toFixed(2));
+      updateBalance(
+        won ? payout - bet : -bet,
+        'Dice',
+        won ? `Rolled ${roll}, under ${diceTarget}` : `Rolled ${roll}, missed under ${diceTarget}`
+      );
+    }, preview.length * 90);
   }
 
   useEffect(() => {
@@ -275,8 +284,8 @@ export function CasinoApp({ game }: { game: GameKey }) {
             <strong>{diceTarget}</strong>
           </label>
           <p className="muted">Classic fast dice loop. Tune probability, roll, and learn the payout curve.</p>
-          <div className="result-box">{diceLast === null ? 'No roll yet' : `Last roll: ${diceLast}`}</div>
-          <button className="primary action-big" onClick={rollDice}>Roll Dice</button>
+          <div className={`result-box ${diceRolling ? 'rolling' : ''}`}>{diceLast === null ? 'No roll yet' : `Last roll: ${diceLast}`}</div>
+          <button className="primary action-big" onClick={rollDice} disabled={diceRolling}>{diceRolling ? 'Rolling...' : 'Roll Dice'}</button>
         </article>
       );
     }
@@ -300,7 +309,8 @@ export function CasinoApp({ game }: { game: GameKey }) {
             Auto cashout
             <input type="number" step="0.1" min="1.1" value={crashAutoCashout} onChange={(e) => setCrashAutoCashout(Number(e.target.value) || 1.1)} />
           </label>
-          <div className="crash-display">{crashMultiplier.toFixed(2)}x</div>
+          <div className={`crash-display ${crashRunning ? 'crash-live' : ''}`}>{crashMultiplier.toFixed(2)}x</div>
+          <div className="crash-bar"><div className="crash-bar-fill" style={{ width: `${Math.min(crashMultiplier * 12, 100)}%` }} /></div>
           <p className="muted">The multiplier climbs until it suddenly crashes. Cash out in time.</p>
           <div className="button-row">
             <button className="primary action-big" onClick={startCrash} disabled={crashRunning}>Start Round</button>
@@ -326,7 +336,7 @@ export function CasinoApp({ game }: { game: GameKey }) {
             <div><span>Bet</span><strong>{formatCoin(bet)}</strong></div>
           </div>
           <p className="muted">Three hidden mines on a 4x4 grid. Every safe click boosts your multiplier.</p>
-          <div className="mines-grid">{Array.from({ length: GRID_SIZE }).map((_, index) => { const revealed = mines.revealed.includes(index); const isMine = mines.mines.includes(index); return <button key={index} className={`tile ${revealed ? (isMine ? 'mine' : 'safe') : ''}`} onClick={() => revealTile(index)} disabled={!mines.active || revealed || (!mines.active && !mines.lost)}>{revealed ? (isMine ? '✕' : '◆') : '?'}</button>; })}</div>
+          <div className="mines-grid">{Array.from({ length: GRID_SIZE }).map((_, index) => { const revealed = mines.revealed.includes(index); const isMine = mines.mines.includes(index); return <button key={index} className={`tile ${revealed ? (isMine ? 'mine' : 'safe') : ''} ${revealed ? 'revealed' : ''}`} onClick={() => revealTile(index)} disabled={!mines.active || revealed || (!mines.active && !mines.lost)}>{revealed ? (isMine ? '✕' : '◆') : '?'}</button>; })}</div>
           <div className="button-row">
             <button className="primary action-big" onClick={startMines}>New Round</button>
             <button className="action-big" onClick={cashOutMines} disabled={!mines.active || mines.revealed.length === 0}>Cash Out</button>

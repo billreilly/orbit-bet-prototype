@@ -78,13 +78,18 @@ input[type="number"], input[type="range"], input[type="email"] { width: 100%; ma
 .pill { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; font-size: 0.8rem; width: fit-content; }
 .pill-bright { background: rgba(255,255,255,0.1); color: #eaf4ff; }
 .result-box, .crash-display { margin: 18px 0; border-radius: 16px; padding: 24px; text-align: center; background: rgba(10, 15, 20, 0.65); border: 1px solid var(--border); font-size: 2rem; font-weight: 700; }
+.result-box.rolling { animation: pulse-roll 0.24s linear infinite; }
 .crash-display { color: var(--green); box-shadow: inset 0 0 40px rgba(0,231,1,0.06); }
+.crash-display.crash-live { animation: crashPulse 0.7s ease-in-out infinite; }
+.crash-bar { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: -4px; margin-bottom: 18px; }
+.crash-bar-fill { height: 100%; background: linear-gradient(90deg, #19c55a, #7dff9b); border-radius: inherit; transition: width 120ms linear; }
 .mines-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .mines-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
 .tile { aspect-ratio: 1; border-radius: 14px; background: #151c23; color: white; border: 1px solid var(--border); font-size: 1.3rem; transition: transform 120ms ease, border-color 120ms ease; }
 .tile:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.16); }
 .tile.safe { background: var(--green-soft); color: var(--green); }
 .tile.mine { background: var(--red-soft); color: var(--red); }
+.tile.revealed { animation: tilePop 0.22s ease-out; }
 .stream-card { background: linear-gradient(180deg, rgba(20, 35, 45, 0.95), rgba(17, 25, 31, 0.95)); }
 .stream-header { display: flex; align-items: center; justify-content: space-between; }
 .live-dot { color: var(--green); }
@@ -96,6 +101,20 @@ input[type="number"], input[type="range"], input[type="email"] { width: 100%; ma
 .log-row p { margin-bottom: 0; font-size: 0.9rem; color: var(--muted); }
 .win { color: var(--green); }
 .lose { color: var(--red); }
+@keyframes pulse-roll {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+@keyframes crashPulse {
+  0% { box-shadow: inset 0 0 40px rgba(0,231,1,0.04), 0 0 0 rgba(0,231,1,0); }
+  50% { box-shadow: inset 0 0 40px rgba(0,231,1,0.1), 0 0 24px rgba(0,231,1,0.18); }
+  100% { box-shadow: inset 0 0 40px rgba(0,231,1,0.04), 0 0 0 rgba(0,231,1,0); }
+}
+@keyframes tilePop {
+  0% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
 @media (max-width: 1200px) {
   .lobby-grid, .promo-grid { grid-template-columns: 1fr; }
 }
